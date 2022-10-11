@@ -1,0 +1,1012 @@
+---
+title: "Analysis campo Colotenango"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Reading files and libreries
+
+```{r libreries, warning = FALSE, message = FALSE}
+library(dplyr)
+library(readxl)
+library(writexl)
+library(questionr)
+library(formattable)
+library(scales)
+library(tibble)
+library(stringr)
+library(pollster)
+```
+
+
+Leyendo los datos
+
+```{r readingFile,  warning = FALSE, message = FALSE}
+setwd("C:/Users/dcornejo/OneDrive/Documentos/aplicacion OIM/ESTUDIOS/campoHuehuetenango/colotenango/limpio")
+dbHogar <- read_excel("BDpreliminarDTM_HUE_GT_2021_ENCUESTA_HOGARES_COLOTENANGO_registros limpios del 7 al 10 de junio.xlsx", sheet='DTM Huehuetenango GT', guess_max=Inf)
+
+dbSocioDemo <- read_excel("BDpreliminarDTM_HUE_GT_2021_ENCUESTA_HOGARES_COLOTENANGO_registros limpios del 7 al 10 de junio.xlsx", sheet=2, guess_max=Inf)
+
+dbTrabajo <- read_excel("BDpreliminarDTM_HUE_GT_2021_ENCUESTA_HOGARES_COLOTENANGO_registros limpios del 7 al 10 de junio.xlsx", sheet=3, guess_max=Inf)
+
+dbMigacion <- read_excel("BDpreliminarDTM_HUE_GT_2021_ENCUESTA_HOGARES_COLOTENANGO_registros limpios del 7 al 10 de junio.xlsx", sheet=4, guess_max=Inf)
+
+dbHogar <- dbHogar %>%filter(`_categoría`=='efectiva')
+dbTrabajo <- dbTrabajo %>% mutate(`502. Edad` = as.numeric(`502. Edad`))
+
+colnames(dbTrabajo)[63] <- "516. Cual es su ingreso en quetzales"
+colnames(dbSocioDemo)[2] <- "203. ¿Qué relación de parentesco tiene con el(la) jefe(a) de hogar?"
+colnames(dbSocioDemo)[14] <- "207. ¿El sexo de es?"
+colnames(dbSocioDemo)[15] <- "208. ¿Qué edad tiene en años cumplidos?"
+colnames(dbSocioDemo)[20] <- "209. ¿Cuál es el estado familiar de"
+colnames(dbSocioDemo)[21] <- "210. ¿Sabe leer y escribir?"
+dbTrabajo <- dbTrabajo %>% mutate(`516. Cual es su ingreso en quetzales` = as.numeric(`516. Cual es su ingreso en quetzales`))
+
+dbSocioDemo <- dbSocioDemo %>% mutate(`208. ¿Qué edad tiene en años cumplidos?` = as.numeric(`208. ¿Qué edad tiene en años cumplidos?`))
+
+dbTrabajo <-dbTrabajo %>% mutate(`grupoDeEdad2` = ifelse((`502. Edad`<18&`502. Edad`>6),"Niñez y adolescencia (7 a 17)",ifelse(`502. Edad`<30,"Juventud (18 a 29)",ifelse(`502. Edad`<60,"Población adulta (30-59)",ifelse(`502. Edad`<120,"Personas adultas mayores (60+)","NA")))))
+
+dbHogar <- dbHogar %>%filter(`_categoría`=='efectiva')
+#anios de escolaridad
+dbSocioDemo <- dbSocioDemo %>% mutate(aniosEscolaridad = ifelse(`211. ¿Cuál fue el último nivel estudiado y grado aprobado?`=='0. Ninguno (o menos que 1ero de primaria)',0,ifelse(`211. ¿Cuál fue el último nivel estudiado y grado aprobado?`=='1. Primero de primaria',1,ifelse(`211. ¿Cuál fue el último nivel estudiado y grado aprobado?`=='2. Segundo de primaria',2,ifelse(`211. ¿Cuál fue el último nivel estudiado y grado aprobado?`=='3. Tercero de primaria',3,ifelse(`211. ¿Cuál fue el último nivel estudiado y grado aprobado?`=='4. Cuarto de primaria',4,ifelse(`211. ¿Cuál fue el último nivel estudiado y grado aprobado?`=='5. Quinto de primaria',5,ifelse(`211. ¿Cuál fue el último nivel estudiado y grado aprobado?`=='6. Sexto de primaria',6,ifelse(`211. ¿Cuál fue el último nivel estudiado y grado aprobado?`=='7. Primero de básica',7,ifelse(`211. ¿Cuál fue el último nivel estudiado y grado aprobado?`=='8. Segundo de básica',8,ifelse(`211. ¿Cuál fue el último nivel estudiado y grado aprobado?`=='9. Tercero de básica',9,ifelse(`211. ¿Cuál fue el último nivel estudiado y grado aprobado?`=='10. Primero de diversificado',10,ifelse(`211. ¿Cuál fue el último nivel estudiado y grado aprobado?`=='11. Segundo de diversificado',11,ifelse(`211. ¿Cuál fue el último nivel estudiado y grado aprobado?`=='12. Tercero de diversificado',12,ifelse(`211. ¿Cuál fue el último nivel estudiado y grado aprobado?`=='13. Primero de técnico (superior no universitario)',12,ifelse(`211. ¿Cuál fue el último nivel estudiado y grado aprobado?`=='17. Segundo de universidad',13,ifelse(`211. ¿Cuál fue el último nivel estudiado y grado aprobado?`=='18. Tercero de universidad',14,ifelse(`211. ¿Cuál fue el último nivel estudiado y grado aprobado?`=='15. Tercero de técnico (superior no universitario)',14,NA))))))))))))))))))
+
+#creando variable para pidamide poblacional
+dbSocioDemo <-dbSocioDemo %>% mutate(`edadPiramidePoblacional` = ifelse(`208. ¿Qué edad tiene en años cumplidos?`<13,"0 a 12",ifelse(`208. ¿Qué edad tiene en años cumplidos?`<18,"13 a 17",ifelse(`208. ¿Qué edad tiene en años cumplidos?`<30,"18 a 29",ifelse(`208. ¿Qué edad tiene en años cumplidos?`<40,'30 a 39',ifelse(`208. ¿Qué edad tiene en años cumplidos?`<50,'40 a 49',ifelse(`208. ¿Qué edad tiene en años cumplidos?`<60,'50 a 59','+60')))))))
+
+jefeHogar <- dbSocioDemo %>% filter(`203. ¿Qué relación de parentesco tiene con el(la) jefe(a) de hogar?` == '1-Jefe(a) de hogar' & `Marcar si es la persona entrevistada (una persona por hogar, si más de una persona está respondiendo, marcar quien haya iniciado la entrevista)/Persona entrevistada`==1)
+infoJefeHogar <- right_join(dbHogar,jefeHogar, by = c("_index" = "_parent_index"))
+
+infoJefeHogar <- infoJefeHogar %>% mutate(numeric909 = case_when(`909. La situación económica de su hogar`=="0 (Completamente insatisfecho/a)"~0,`909. La situación económica de su hogar`=="1"~1,`909. La situación económica de su hogar`=="3"~3,`909. La situación económica de su hogar`=="4"~4,`909. La situación económica de su hogar`=="5 (Neutro)"~5,`909. La situación económica de su hogar`=="6"~6,`909. La situación económica de su hogar`=="7"~7,`909. La situación económica de su hogar`=="8"~8,`909. La situación económica de su hogar`=="9"~9,`909. La situación económica de su hogar`=="10 (Completamente satisfecho/a)"~10))
+
+infoJefeHogar <- infoJefeHogar %>% mutate(numeric910 = case_when(`910. Oportunidades para tener mejores condiciones de vida en el futuro`=="0 (Completamente insatisfecho/a)"~0,`910. Oportunidades para tener mejores condiciones de vida en el futuro`=="1"~1,`910. Oportunidades para tener mejores condiciones de vida en el futuro`=="3"~3,`910. Oportunidades para tener mejores condiciones de vida en el futuro`=="4"~4,`910. Oportunidades para tener mejores condiciones de vida en el futuro`=="5 (Neutro)"~5,`910. Oportunidades para tener mejores condiciones de vida en el futuro`=="6"~6,`910. Oportunidades para tener mejores condiciones de vida en el futuro`=="7"~7,`910. Oportunidades para tener mejores condiciones de vida en el futuro`=="8"~8,`910. Oportunidades para tener mejores condiciones de vida en el futuro`=="9"~9,`910. Oportunidades para tener mejores condiciones de vida en el futuro`=="10 (Completamente satisfecho/a)"~10))
+
+dbSocioDemo <-dbSocioDemo %>% mutate(`grupoDeEdad2` = case_when((`208. ¿Qué edad tiene en años cumplidos?`<18&`208. ¿Qué edad tiene en años cumplidos?`>0)~"Niñez y adolescencia (0 a 17)",`208. ¿Qué edad tiene en años cumplidos?`<30~"Juventud (18 a 29)",`208. ¿Qué edad tiene en años cumplidos?`<40~"Población adulta (30-39)",`208. ¿Qué edad tiene en años cumplidos?`<120~"Personas adultas mayores (60+)"))
+
+dbSocioDemo <- dbSocioDemo %>% mutate(escolaridadMinima2 = ifelse((`208. ¿Qué edad tiene en años cumplidos?`-`aniosEscolaridad`)<9,1,ifelse(is.na(`aniosEscolaridad`),NA,0)))
+```
+
+Informacion General
+
+
+
+```{r}
+#propiedad de vivienda
+propiedadVivienda <-   dbHogar %>%
+    count(`118. ¿Cuál es la forma de tenencia de esta vivienda?`,wt = wt) %>%
+    mutate(freq =label_percent()(round(n / sum(n),digits=4))) %>% arrange(desc(n))
+format_table(propiedadVivienda)
+
+```
+
+```{r}
+#papeles
+documentosLegales <- dbHogar %>%filter((`118. ¿Cuál es la forma de tenencia de esta vivienda?` == '05. Propietario(a) y completamente pagada'|`118. ¿Cuál es la forma de tenencia de esta vivienda?` == '06. Propietario(a) y la está pagando'))%>%
+count(`¿Cuenta la persona propietaria con los documentos legales de la propiedad de la vivienda?`,wt = wt)  %>%
+  mutate(freq =label_percent()(round(n / sum(n),digits=4)))%>% arrange(desc(n))
+format_table(documentosLegales)
+```
+
+
+### servicios básicos
+
+```{r}
+# Energía eléctrica
+format_table(dbHogar %>%
+count(`120. ¿La vivienda tiene servicio de energía eléctrica?`,wt = wt)  %>%
+  mutate(freq =label_percent()(round(n / sum(n),digits=4)))%>% arrange(desc(n)))
+#agua para el consumo del hogar
+format_table(dbHogar %>%
+count(`108. ¿De dónde obtienen principalmente el agua para consumo del hogar?`,wt = wt)  %>%
+  mutate(freq =label_percent()(round(n / sum(n),digits=4)))%>% arrange(desc(n)))
+#servicio sanitario
+format_table(dbHogar %>%
+count(`113. ¿Posee esta vivienda acceso a servicio sanitario?`,wt = wt)  %>%
+  mutate(freq =label_percent()(round(n / sum(n),digits=4)))%>% arrange(desc(n)))
+
+```
+
+```{r}
+#acceso tecnológico
+format_table(dbHogar %>%
+count(`110. ¿Tiene el hogar o alguno de sus miembros acceso a internet?`,wt = wt)  %>%
+  mutate(freq =label_percent()(round(n / sum(n),digits=4)))%>% arrange(desc(n)))
+```
+
+```{r}
+dbHogarConInternet <- dbHogar %>%filter(`110. ¿Tiene el hogar o alguno de sus miembros acceso a internet?` == '03. Sí, Internet móvil (celular)')
+
+resultRedesSociales = as.data.frame(t(sapply(dbHogarConInternet %>% select(c(40:47)), function(x) {wtd.table(x,weights = dbHogarConInternet$wt)})))
+
+resultRedesSociales$Sum = rowSums(resultRedesSociales)
+
+resultRedesSociales <- resultRedesSociales %>% mutate(`Freq` =label_percent()(round(`1` / `Sum`,digits=4)))%>% arrange(desc(`1`))
+
+rownames(resultRedesSociales) <- substr(rownames(resultRedesSociales),119,str_length(rownames(resultRedesSociales)))
+
+resultRedesSociales <- resultRedesSociales %>% select(c(`1`,`Freq`))
+
+colnames(resultRedesSociales)[1] <- "Número de hogares"
+
+resultRedesSociales <- tibble::rownames_to_column(resultRedesSociales, "Redes sociales utilizadas")
+
+format_table(resultRedesSociales)
+```
+
+
+```{r}
+#dbSocioDemo$`203. ¿Qué relación de parentesco tiene con el(la) jefe(a) de hogar?`
+#dbSocioDemo$`203. ¿Qué relación de parentesco tiene con el(la) jefe(a) de hogar?`
+format_table(
+  dbSocioDemo %>% filter(`203. ¿Qué relación de parentesco tiene con el(la) jefe(a) de hogar?` == "1-Jefe(a) de hogar") %>%
+    count(`207. ¿El sexo de es?`,wt = wt) %>%
+      mutate(freq =label_percent()(round(n / sum(n),digits=4))) %>% arrange(desc(n))
+  )
+format_table(dbSocioDemo %>%
+               filter(`203. ¿Qué relación de parentesco tiene con el(la) jefe(a) de hogar?` == "1-Jefe(a) de hogar")%>% 
+               group_by(`207. ¿El sexo de es?`)%>%
+               summarize(escolaridadPromedio=
+  weighted.mean(`aniosEscolaridad`,wt = wt,na.rm = TRUE),edadPromedio = weighted.mean(`208. ¿Qué edad tiene en años cumplidos?`,wt = wt,na.rm = TRUE)))
+```
+
+```{r}
+format_table(
+  dbSocioDemo %>% filter(`203. ¿Qué relación de parentesco tiene con el(la) jefe(a) de hogar?` != "1-Jefe(a) de hogar") %>%
+  count(`203. ¿Qué relación de parentesco tiene con el(la) jefe(a) de hogar?`,wt = wt)  %>%
+  mutate(freq =label_percent()(round(n / sum(n),digits=4)))%>% arrange(desc(n))
+)
+```
+
+```{r}
+#rnago de edad, hombres y mujeres promedio en ese rango
+
+numeroHogares <- dbSocioDemo %>% 
+  distinct( `_parent_index`, .keep_all = TRUE) %>%
+  summarise(totalHogares = sum(`wt`)) %>% getElement(1)
+totalSumWT <- dbSocioDemo %>% 
+  group_by(`grupoDeEdad2`) %>%
+  summarise(totalEnGrupo = sum(`wt`)) %>%
+  mutate(average = totalEnGrupo/numeroHogares)
+format_table(
+  totalSumWT %>%
+  mutate(`average` =round(`average`,digits=2))%>% arrange(desc(totalEnGrupo))
+)
+```
+
+```{r}
+#rnago de edad, hombres y mujeres promedio en ese rango
+numeroHogares <- dbSocioDemo %>% 
+  distinct( `_parent_index`, .keep_all = TRUE) %>%
+  summarise(totalHogares = sum(`wt`)) %>% getElement(1)
+totalSumWT <- dbSocioDemo %>% 
+  group_by(`207. ¿El sexo de es?`) %>%
+  summarise(totalEnGrupo = sum(`wt`)) %>%
+  mutate(average = totalEnGrupo/numeroHogares)
+format_table(
+  totalSumWT %>%
+  mutate(`average` =round(`average`,digits=2))%>% arrange(desc(totalEnGrupo))
+)
+```
+
+```{r}
+# ESTE ESTÁ BIEN
+numeroHogares <- dbSocioDemo %>% 
+  distinct( `_parent_index`, .keep_all = TRUE) %>%
+  summarise(totalHogares = sum(`wt`)) %>% getElement(1)
+totalSumWT <- dbSocioDemo %>% 
+  group_by(`grupoDeEdad2`) %>%
+  summarise(totalEnGrupo = sum(`wt`)) %>%
+  mutate(average = totalEnGrupo/numeroHogares)
+format_table(
+  totalSumWT %>%
+  mutate(`average` =round(`average`,digits=2))%>% arrange(desc(totalEnGrupo))
+)
+
+```
+
+```{r}
+# ESTE ESTÁ BIEN
+numeroHogares <- dbSocioDemo %>% 
+  distinct( `_parent_index`, .keep_all = TRUE) %>%
+  summarise(totalHogares = sum(`wt`)) %>% getElement(1)
+totalSumWT <- dbSocioDemo %>% filter(`207. ¿El sexo de es?`=="1. Hombre")%>% 
+  group_by(`grupoDeEdad2`) %>%
+  summarise(totalEnGrupo = sum(`wt`)) %>%
+  mutate(average = totalEnGrupo/numeroHogares)
+format_table(
+  totalSumWT %>%
+  mutate(`average` =round(`average`,digits=2))%>% arrange(desc(totalEnGrupo))
+)
+```
+
+```{r}
+# ESTE ESTÁ BIEN
+numeroHogares <- dbSocioDemo %>% 
+  distinct( `_parent_index`, .keep_all = TRUE) %>%
+  summarise(totalHogares = sum(`wt`)) %>% getElement(1)
+totalSumWT <- dbSocioDemo %>% filter(`207. ¿El sexo de es?`=="2. Mujer")%>% 
+  group_by(`grupoDeEdad2`) %>%
+  summarise(totalEnGrupo = sum(`wt`)) %>%
+  mutate(average = totalEnGrupo/numeroHogares)
+format_table(
+  totalSumWT %>%
+  mutate(`average` =round(`average`,digits=2))%>% arrange(desc(totalEnGrupo))
+)
+```
+```{r}
+format_table(
+  dbSocioDemo %>%
+  count(`207. ¿El sexo de es?`,`edadPiramidePoblacional`,wt = wt)  %>%
+  mutate(freq =label_percent()(round(n / sum(n),digits=4)))
+)
+```
+
+```{r}
+format_table(
+  dbSocioDemo %>%
+  count(`207. ¿El sexo de es?`,wt = wt)  %>%
+  mutate(freq =label_percent()(round(n / sum(n),digits=4)))%>% arrange(desc(n))
+)
+```
+
+```{r}
+# cuál es la edad promedio de hombres y mujeres y cuánto representan de la población
+format_table(
+dbSocioDemo %>% 
+    group_by(`207. ¿El sexo de es?`) %>%
+  summarise(promedioDeEdad = weighted.mean(`208. ¿Qué edad tiene en años cumplidos?`,`wt`))
+    %>% arrange(desc(promedioDeEdad))
+)
+```
+
+```{r}
+#comunidad Indigena pertencen
+format_table(dbSocioDemo %>%
+  count(`¿A qué pueblo o comunidad indígena pertenece?`,wt = wt)  %>%
+  mutate(freq =label_percent()(round(n / sum(n),digits=4))) %>% arrange(desc(n)))
+```
+
+
+
+```{r}
+#comunidad linguistica
+format_table(dbSocioDemo %>%
+  count(`¿A qué comunidad lingüística pertenece?`,wt = wt)  %>%
+  mutate(freq =label_percent()(round(n / sum(n),digits=4))) %>% arrange(desc(n)))
+```
+
+```{r}
+dbSocioDemo <-dbSocioDemo %>% mutate(`grupoDeEdad2` = ifelse((`208. ¿Qué edad tiene en años cumplidos?`<18&`208. ¿Qué edad tiene en años cumplidos?`>6),"Niñez y adolescencia (7 a 17)",ifelse(`208. ¿Qué edad tiene en años cumplidos?`<30,"Juventud (18 a 29)",ifelse(`208. ¿Qué edad tiene en años cumplidos?`<60,"Población adulta (30-59)",ifelse(`208. ¿Qué edad tiene en años cumplidos?`<120,"Personas adultas mayores (60+)","NA")))))
+
+
+format_table(dbSocioDemo %>% filter(`208. ¿Qué edad tiene en años cumplidos?`>6) %>% group_by(`grupoDeEdad2`,`207. ¿El sexo de es?`)%>%
+  count(`210. ¿Sabe leer y escribir?`,wt = wt) %>%
+  mutate(freq =label_percent()(round(n / sum(n),digits=4)))%>%
+          arrange(desc(`grupoDeEdad2`,n) ))
+```
+
+```{r}
+#porcentaje que estudia actualmente
+format_table(dbSocioDemo %>% group_by(`207. ¿El sexo de es?`)%>% filter((`208. ¿Qué edad tiene en años cumplidos?` >3 & `208. ¿Qué edad tiene en años cumplidos?` <30))%>%
+  count(`212. ¿Estudia actualmente? (edad de 4 a 29 años)`,wt = wt) %>%
+  mutate(freq =label_percent()(round(n / sum(n),digits=4))) %>% 
+    arrange(desc(`207. ¿El sexo de es?`,`freq`)))
+```
+
+```{r}
+#razones por las que no estudia actualmente
+# Medios de comunicación
+resultRazonesParaNoEstudiar = as.data.frame(t(sapply(dbSocioDemo %>% select(c(27:28,30:43)), function(x) {wtd.table(x,weights = dbSocioDemo$wt)})))
+
+resultRazonesParaNoEstudiar$Sum = rowSums(resultRazonesParaNoEstudiar)
+
+resultRazonesParaNoEstudiar <- resultRazonesParaNoEstudiar %>% mutate(`Freq` =label_percent()(round(`1` / `Sum`,digits=4)))%>% arrange(desc(`1`))
+
+rownames(resultRazonesParaNoEstudiar) <- substr(rownames(resultRazonesParaNoEstudiar),39,str_length(rownames(resultRazonesParaNoEstudiar)))
+
+resultRazonesParaNoEstudiar <- resultRazonesParaNoEstudiar %>% select(c(`1`,`Freq`))
+
+colnames(resultRazonesParaNoEstudiar)[1] <- "Número de hogares"
+
+resultRazonesParaNoEstudiar <- tibble::rownames_to_column(resultRazonesParaNoEstudiar, "Razones para no estudiar")
+
+format_table(resultRazonesParaNoEstudiar)
+```
+
+```{r}
+#dbSocioDemo$`211. ¿Cuál fue el último nivel estudiado y grado aprobado?`
+
+format_table(dbSocioDemo %>% filter(`208. ¿Qué edad tiene en años cumplidos?`>4)%>% group_by(`207. ¿El sexo de es?`)%>%
+  count(`211. ¿Cuál fue el último nivel estudiado y grado aprobado?`,wt = wt) %>%
+  mutate(freq =label_percent()(round(n / sum(n),digits=4))) %>% 
+    arrange(desc(`207. ¿El sexo de es?`,n)))
+```
+
+```{r}
+#promedio de escolaridad por edad de 12 a 19
+#escolaridad mínima2
+
+
+format_table(
+  dbSocioDemo %>% filter(`208. ¿Qué edad tiene en años cumplidos?`>=12 & `208. ¿Qué edad tiene en años cumplidos?`<=19)%>% group_by(`208. ¿Qué edad tiene en años cumplidos?`,`207. ¿El sexo de es?`) %>%summarize(escolaridadPromedio=
+  weighted.mean(`aniosEscolaridad`,wt = wt,na.rm = TRUE))
+)
+
+```
+
+
+```{r}
+# sacar por edad y sexo cuántos han pasado cada cosa
+format_table(
+  dbSocioDemo %>% filter(`208. ¿Qué edad tiene en años cumplidos?`>=12 & `208. ¿Qué edad tiene en años cumplidos?`<=19)%>% group_by(`208. ¿Qué edad tiene en años cumplidos?`,`207. ¿El sexo de es?`) %>%
+               count(`escolaridadMinima2`,wt = wt) %>%
+  mutate(freq =label_percent()(round(n / sum(n),digits=4))) %>% 
+    arrange(desc(`207. ¿El sexo de es?`,`freq`)))
+```
+
+```{r}
+#dbTrabajo$`504. ¿Qué hizo durante la semana pasada?`
+dbTrabajo <-dbTrabajo %>% mutate(ocupado = ifelse(`503. ¿Trabajó durante la semana pasada de forma remunerada?`=='1. Sí','Trabajo',ifelse(`504. ¿Qué hizo durante la semana pasada?`=='No trabajó','No trabajo',ifelse(`504. ¿Qué hizo durante la semana pasada?`=='9998. No Sabe','No sabe',ifelse(`504. ¿Qué hizo durante la semana pasada?`=='9999. No Responde','No responde',ifelse(is.na(`504. ¿Qué hizo durante la semana pasada?`),NA,'Trabajo'))))))
+dbTrabajo <-dbTrabajo %>% mutate(`grupoDeEdad3` = ifelse((`502. Edad`<=29&`502. Edad`>=15),"15 - 29",ifelse(`502. Edad`>=30,"30 o más",NA)))
+
+format_table(
+  dbTrabajo %>% filter(`502. Edad`>=15)%>%
+    group_by(`501. Sexo`,`grupoDeEdad3`)%>%
+  count(`ocupado`,wt = wt)  %>%
+  mutate(freq =label_percent()(round(n / sum(n),digits=4)))%>% arrange(desc(`501. Sexo`,`n`))
+)
+```
+
+
+
+### adding code as it is in the paper
+```{r}
+dbTrabajo <- dbTrabajo %>% mutate(desocupado = ifelse(ocupado == 'No trabajo',ifelse((`505. Si no trabajó, ¿qué hizo durante la semana pasada?/Buscó trabajo y trabajó antes`==1|`505. Si no trabajó, ¿qué hizo durante la semana pasada?/Buscó trabajo por primera vez`==1),'Desocupado','Inactivo'),ifelse(ocupado == 'Trabajo','Trabajo',NA)))
+
+
+format_table(
+  dbTrabajo %>% filter(`502. Edad`>=15&(!is.na(desocupado)&(desocupado=="Trabajo"|desocupado=="Desocupado")))%>%
+    group_by(`501. Sexo`,`grupoDeEdad3`)%>%
+  count(`desocupado`,wt = wt)  %>%
+  mutate(freq =label_percent()(round(n / sum(n),digits=4)))%>% arrange(desc(`501. Sexo`,`n`))
+)
+```
+
+```{r}
+dbTrabajoFormal <- dbTrabajo %>% filter(`desocupado` == "Trabajo")
+dbTrabajoFormal$subformal[(dbTrabajoFormal$`¿Desea trabajar más horas por semana y está disponible para hacerlo?`=="1. Sí")]<- "Subempleo"
+dbTrabajoFormal$subformal[is.na(dbTrabajoFormal$subformal)]<- "Empleo normal"
+format_table(
+  dbTrabajoFormal %>% filter(`502. Edad`>=15&(!is.na(`subformal`)))%>%group_by(`501. Sexo`,`grupoDeEdad3`)%>%
+  count(`subformal`,wt=`wt`)  %>%
+  mutate(freq =label_percent()(round(n / sum(n),digits=4)))
+)
+```
+
+```{r}
+# Uso a la tierra
+#dbHogar$
+dbHogarMecanismoAdaptacion <- dbHogar%>% filter((!is.na(`602. Durante los últimos 12 meses, ¿su hogar tuvo que realizar alguna de las siguientes acciones por pérdida o falta de ingresos?`)|`602. Durante los últimos 12 meses, ¿su hogar tuvo que realizar alguna de las siguientes acciones por pérdida o falta de ingresos?`!="9999. No Responde"))
+mecanismosAdaptacion <- as.data.frame(t(sapply(dbHogarMecanismoAdaptacion %>% select(c(149:160)), function(x) {wtd.table(x,weights = dbHogarMecanismoAdaptacion$wt)})))
+
+mecanismosAdaptacion$Sum <- rowSums(mecanismosAdaptacion)
+
+mecanismosAdaptacion <- mecanismosAdaptacion %>% mutate(`Freq` =label_percent()(round(`1` / `Sum`,digits=4)))%>% arrange(desc(`1`))
+
+rownames(mecanismosAdaptacion) <- substr(rownames(mecanismosAdaptacion),131,str_length(rownames(mecanismosAdaptacion)))
+
+mecanismosAdaptacion <- mecanismosAdaptacion %>% select(c(`1`,`Freq`))
+
+colnames(mecanismosAdaptacion)[1] <- "Número de hogares"
+
+mecanismosAdaptacion <- tibble::rownames_to_column(mecanismosAdaptacion, "Mecanismos de adaptación")
+
+format_table(mecanismosAdaptacion)
+```
+
+
+```{r}
+format_table( 
+  dbHogar %>%  
+  count(`301. ¿Algún miembro del hogar tiene familiares en el extranjero?`,wt = wt)  %>%
+  mutate(freq =label_percent()(round(n / sum(n),digits=4)))%>% arrange(desc(n))
+)
+```
+
+```{r}
+# paises de residencia
+dbPaisesDeResidencia <- dbHogar %>% filter(`301. ¿Algún miembro del hogar tiene familiares en el extranjero?`=='1. Sí')
+paisDeResidencia = as.data.frame(t(sapply(dbPaisesDeResidencia %>% select(c(79:80)), function(x) {wtd.table(x,weights = dbPaisesDeResidencia$wt)})))
+
+paisDeResidencia$Sum = rowSums(paisDeResidencia)
+
+paisDeResidencia <- paisDeResidencia %>% mutate(`Freq` =label_percent()(round(`1` / `Sum`,digits=4)))%>% arrange(desc(`1`))
+
+rownames(paisDeResidencia) <- substr(rownames(paisDeResidencia),43,str_length(rownames(paisDeResidencia)))
+
+paisDeResidencia <- paisDeResidencia %>% select(c(`1`,`Freq`))
+
+colnames(paisDeResidencia)[1] <- "Número de hogares"
+
+paisDeResidencia <- tibble::rownames_to_column(paisDeResidencia, "País de residencia")
+
+format_table(paisDeResidencia)
+```
+
+```{r}
+#porcentaje de hogares con miembros que migraron
+format_table( 
+  dbHogar %>%  
+  count(`302. ¿ALGÚN MIEMBRO DEL HOGAR O QUE FUE PARTE DEL HOGAR MIGRÓ O INTENTÓ MIGRAR AL EXTRANJERO EN LOS ÚLTIMOS 10 AÑOS?`,wt = wt)  %>%
+  mutate(freq =label_percent()(round(n / sum(n),digits=4)))%>% arrange(desc(n))
+)
+```
+
+
+```{r}
+format_table( 
+  dbMigacion %>% 
+  count(`306. País de destino`,wt = wt)  %>%
+  mutate(freq =label_percent()(round(n / sum(n),digits=4)))%>% arrange(desc(n))
+)
+
+```
+
+```{r}
+#porcentaje de hogares con miembros que migraron
+format_table( 
+  dbHogar %>%  
+  count(`302. ¿ALGÚN MIEMBRO DEL HOGAR O QUE FUE PARTE DEL HOGAR MIGRÓ O INTENTÓ MIGRAR AL EXTRANJERO EN LOS ÚLTIMOS 10 AÑOS?`,wt = wt)  %>%
+  mutate(freq =label_percent()(round(n / sum(n),digits=4)))%>% arrange(desc(n))
+)
+```
+
+```{r}
+dbMigacion <-dbMigacion %>% mutate(`grupoDeEdad2` = ifelse((`303. Edad al migrar`<18),"Niñez y adolescencia (7 a 17)",ifelse(`303. Edad al migrar`<30,"Juventud (18 a 29)",ifelse(`303. Edad al migrar`<60,"Población adulta (30-59)",ifelse(`303. Edad al migrar`<120,"Personas adultas mayores (60+)","NA")))))
+
+format_table( 
+  dbMigacion %>%  group_by(`304. Sexo`)%>%
+  count(`grupoDeEdad2`,wt = wt)  %>%
+  mutate(freq =label_percent()(round(n / sum(n),digits=4)))%>% arrange(desc(n))
+)
+```
+
+```{r}
+
+format_table( 
+  dbMigacion %>%
+  count(`grupoDeEdad2`,wt = wt)  %>%
+  mutate(freq =label_percent()(round(n / sum(n),digits=4)))%>% arrange(desc(n))
+)
+
+format_table( 
+  dbMigacion %>%
+  count(`304. Sexo`,wt = wt)  %>%
+  mutate(freq =label_percent()(round(n / sum(n),digits=4)))%>% arrange(desc(n))
+)
+```
+
+```{r}
+colnames(dbMigacion)[39]<- "310. ¿Qué relación de parentesco tenía con el(la) jefe(a) de hogar al momento de migrar?"
+format_table( 
+  dbMigacion %>% 
+  count(`310. ¿Qué relación de parentesco tenía con el(la) jefe(a) de hogar al momento de migrar?`,wt = wt)  %>%
+  mutate(freq =label_percent()(round(n / sum(n),digits=4)))%>% arrange(desc(n))
+)
+```
+
+```{r}
+#motivosParaMigrar
+motivosParaMigrar = as.data.frame(t(sapply(dbMigacion %>% select(c(11:16,18,24)), function(x) {wtd.table(x,weights = dbMigacion$wt)})))
+
+motivosParaMigrar$Sum = rowSums(motivosParaMigrar)
+
+motivosParaMigrar <- motivosParaMigrar %>% mutate(`Freq` =label_percent()(round(`1` / `Sum`,digits=4)))%>% arrange(desc(`1`))
+
+rownames(motivosParaMigrar) <- substr(rownames(motivosParaMigrar),91,str_length(rownames(motivosParaMigrar)))
+
+motivosParaMigrar <- motivosParaMigrar %>% select(c(`1`,`Freq`))
+
+colnames(motivosParaMigrar)[1] <- "Número de personas"
+
+motivosParaMigrar <- tibble::rownames_to_column(motivosParaMigrar, "Motivos para migrar")
+
+format_table(motivosParaMigrar)
+```
+
+```{r}
+#diagrama de Ven
+#dbMigacion$busquedaEmpleoOSimilar
+format_table( 
+dbMigacion %>% group_by(`busquedaEmpleoOSimilar`,`308. ¿CUÁLES SON LOS MOTIVOS POR LOS QUE ESTA PERSONA MIGRÓ O INTENTÓ MIGRAR AL EXTERIOR?/02. Por mejores condiciones de vida (mayor espacio, vivienda propia, salud, educación, etc.)`,`308. ¿CUÁLES SON LOS MOTIVOS POR LOS QUE ESTA PERSONA MIGRÓ O INTENTÓ MIGRAR AL EXTERIOR?/03. Para enviar remesas`) %>% count(wt=wt) %>%
+  mutate(freq =label_percent()(round(n / sum(n),digits=4)))%>% arrange(desc(n))
+)
+```
+
+
+
+```{r}
+#dbHogar$por `318.1. Por favor explique las consecuencias positivas`
+#dbHogar$`318. ¿Considera que la migración hacia otro país trae consecuencias positivas, negativas o ambas a los hogares de estas personas?/01. Consecuencias positivas`
+format_table( 
+dbHogar %>% filter(`318. ¿Considera que la migración hacia otro país trae consecuencias positivas, negativas o ambas a los hogares de estas personas?/01. Consecuencias positivas`==1) %>% count(`318.1. Por favor explique las consecuencias positivas`,wt=wt) %>%
+  mutate(freq =label_percent()(round(n / sum(n),digits=4)))%>% arrange(desc(n))
+)
+#dbHogar$por `318.2. Por favor explique las consecuencias negativas`
+format_table( 
+dbHogar %>% filter(`318. ¿Considera que la migración hacia otro país trae consecuencias positivas, negativas o ambas a los hogares de estas personas?/02. Consecuencias negativas`==1) %>% count(`318.2. Por favor explique las consecuencias negativas`,wt=wt) %>%
+  mutate(freq =label_percent()(round(n / sum(n),digits=4)))%>% arrange(desc(n))
+)
+```
+
+```{r}
+#ocupacion
+#dbTrabajo$`506. ¿Cuál es la ocupación, tipo de trabajo u oficio principal que realizó o realiza en ese trabajo?`
+
+#dbTrabajo$`501. Sexo`
+#bTrabajo$`503. ¿Trabajó durante la semana pasada de forma remunerada?`
+format_table( 
+dbTrabajo %>% filter(`503. ¿Trabajó durante la semana pasada de forma remunerada?`=="1. Sí") %>% group_by(`501. Sexo`) %>% count(`506. ¿Cuál es la ocupación, tipo de trabajo u oficio principal que realizó o realiza en ese trabajo?`,wt=wt) %>%
+  mutate(freq =label_percent()(round(n / sum(n),digits=4))))
+
+```
+
+
+```{r}
+#con quienes viajo
+conQuienViajo = as.data.frame(t(sapply(dbMigacion %>% select(c(30:37)), function(x) {wtd.table(x,weights = dbMigacion$wt)})))
+
+conQuienViajo$Sum = rowSums(conQuienViajo)
+
+conQuienViajo <- conQuienViajo %>% mutate(`Freq` =label_percent()(round(`1` / `Sum`,digits=4)))%>% arrange(desc(`1`))
+
+rownames(conQuienViajo) <- substr(rownames(conQuienViajo),26,str_length(rownames(conQuienViajo)))
+
+conQuienViajo <- conQuienViajo %>% select(c(`1`,`Freq`))
+
+colnames(conQuienViajo)[1] <- "Número de personas"
+
+conQuienViajo <- tibble::rownames_to_column(conQuienViajo, "Con quienes viajó")
+
+format_table(conQuienViajo)
+```
+
+
+```{r}
+format_table(
+dbHogar %>%
+  count(`318. ¿Considera que la migración hacia otro país trae consecuencias positivas, negativas o ambas a los hogares de estas personas?`,wt = wt)  %>%
+  mutate(freq =label_percent()(round(n / sum(n),digits=4)))%>% arrange(desc(n))
+)
+```
+
+```{r}
+#dbHogar$negativasAgrupadas
+#to
+#format_table(
+#dbHogar %>%filter(!is.na(negativasAgrupadas))%>%
+#  count(negativasAgrupadas,wt = wt)  %>%
+#mutate(freq =label_percent()(round(n / sum(n),digits=4)))%>% arrange(desc(n))
+#)
+```
+
+```{r}
+#dbHogar$positivasAgrupadas
+#format_table(
+#dbHogar %>% filter(!is.na(positivasAgrupadas))%>%
+#  count(positivasAgrupadas,wt = wt)  %>%
+#  mutate(freq =label_percent()(round(n / sum(n),digits=4)))%>% arrange(desc(n))
+#)
+```
+
+```{r}
+format_table( 
+  dbHogar %>% 
+  count(`701. En los últimos 12 meses, ¿Algún miembro de su hogar ha recibido apoyo económico proveniente del exterior, ya sea en dinero, en bienes o regalos, aunque sea solo una vez?`,wt = wt)  %>%
+  mutate(freq =label_percent()(round(n / sum(n),digits=4)))%>% arrange(desc(n))
+)
+```
+
+```{r}
+dbHogarRemesas <- dbHogar %>% filter(`701. En los últimos 12 meses, ¿Algún miembro de su hogar ha recibido apoyo económico proveniente del exterior, ya sea en dinero, en bienes o regalos, aunque sea solo una vez?`=='1. Sí')
+
+
+format_table( 
+  dbHogarRemesas %>% 
+  count(`702. Aparte de lo que ya mencionó, en los últimos 12 meses ¿algún miembro del hogar ha recibido apoyo económico del exterior de forma extraordinaria (cumpleaños, día de la madre, etc.) o por emergencias (tormentas, fallecimiento de familiar, salud, etc.)`,wt = wt)  %>%
+  mutate(freq =label_percent()(round(n / sum(n),digits=4)))%>% arrange(desc(n))
+)
+```
+
+```{r}
+format_table( 
+dbHogar %>%group_by(`301. ¿Algún miembro del hogar tiene familiares en el extranjero?`) %>% count(`701. En los últimos 12 meses, ¿Algún miembro de su hogar ha recibido apoyo económico proveniente del exterior, ya sea en dinero, en bienes o regalos, aunque sea solo una vez?`,wt=wt) %>%
+  mutate(freq =label_percent()(round(n / sum(n),digits=4)))
+)
+```
+
+
+
+```{r}
+format_table( 
+dbHogar %>%group_by(`302. ¿ALGÚN MIEMBRO DEL HOGAR O QUE FUE PARTE DEL HOGAR MIGRÓ O INTENTÓ MIGRAR AL EXTRANJERO EN LOS ÚLTIMOS 10 AÑOS?`) %>% count(`701. En los últimos 12 meses, ¿Algún miembro de su hogar ha recibido apoyo económico proveniente del exterior, ya sea en dinero, en bienes o regalos, aunque sea solo una vez?`,wt=wt) %>%
+  mutate(freq =label_percent()(round(n / sum(n),digits=4)))
+)
+```
+
+```{r}
+
+  format_table( 
+dbHogar %>%group_by(`301. ¿Algún miembro del hogar tiene familiares en el extranjero?`) %>% count(`701. En los últimos 12 meses, ¿Algún miembro de su hogar ha recibido apoyo económico proveniente del exterior, ya sea en dinero, en bienes o regalos, aunque sea solo una vez?`,wt=wt) %>%
+  mutate(freq =label_percent()(round(n / sum(n),digits=4)))
+)
+```
+
+
+
+
+```{r}
+#migracion interna: salida
+#316
+#dbHogar$`316. ¿Algún miembro de este hogar tuvo que cambiar de residencia hacia otro lugar dentro de Guatemala, por otros motivos en los últimos 10 años? (MIGRACIÓN INTERNA SALIDA)`
+format_table( 
+  dbHogar %>% 
+  count(`316. ¿Algún miembro de este hogar tuvo que cambiar de residencia hacia otro lugar dentro de Guatemala, por otros motivos en los últimos 10 años? (MIGRACIÓN INTERNA SALIDA)`,wt = wt)  %>%
+  mutate(freq =label_percent()(round(n / sum(n),digits=4)))%>% arrange(desc(n))
+)
+```
+
+```{r}
+#317
+dbMigracionInternaSalidaDB <- dbHogar %>% filter(`316. ¿Algún miembro de este hogar tuvo que cambiar de residencia hacia otro lugar dentro de Guatemala, por otros motivos en los últimos 10 años? (MIGRACIÓN INTERNA SALIDA)`=='1. Sí')
+
+dbMigracionInternaSalidaDB = as.data.frame(t(sapply(dbMigracionInternaSalidaDB %>% select(c(106:108,111)), function(x) {wtd.table(x,weights = dbMigracionInternaSalidaDB$wt)})))
+
+dbMigracionInternaSalidaDB$Sum = rowSums(dbMigracionInternaSalidaDB)
+
+dbMigracionInternaSalidaDB <- dbMigracionInternaSalidaDB %>% mutate(`Freq` =label_percent()(round(`1` / `Sum`,digits=4)))%>% arrange(desc(`1`))
+
+rownames(dbMigracionInternaSalidaDB) <- substr(rownames(dbMigracionInternaSalidaDB),69,str_length(rownames(dbMigracionInternaSalidaDB)))
+
+dbMigracionInternaSalidaDB <- dbMigracionInternaSalidaDB %>% select(c(`1`,`Freq`))
+
+colnames(dbMigracionInternaSalidaDB)[1] <- "Número de personas"
+
+dbMigracionInternaSalidaDB <- tibble::rownames_to_column(dbMigracionInternaSalidaDB, "Motivo migración interna de entrada")
+
+format_table(dbMigracionInternaSalidaDB)
+```
+```{r}
+colnames(infoJefeHogar)[186] <- "Satisfacción general de la vida2"
+
+#infoJefeHogar$`Satisfacción general de la vida`
+#infoJefeHogar$`906. Servicios de salud en su municipio`
+infoJefeHogar <- infoJefeHogar %>% mutate(numericGeneralVida = case_when(`Satisfacción general de la vida2`=="0 (Completamente insatisfecho/a)"~0,`Satisfacción general de la vida2`=="1"~1,`Satisfacción general de la vida2`=="3"~3,`Satisfacción general de la vida2`=="4"~4,`Satisfacción general de la vida2`=="5 (Neutro)"~5,`Satisfacción general de la vida2`=="6"~6,`Satisfacción general de la vida2`=="7"~7,`Satisfacción general de la vida2`=="8"~8,`Satisfacción general de la vida2`=="9"~9,`Satisfacción general de la vida2`=="10 (Completamente satisfecho/a)"~10))
+
+format_table( 
+  infoJefeHogar %>% group_by(`917. ¿Usted tiene intención de migrar al exterior en los próximos 12 meses?`)%>% 
+  summarise(satisfaccionGeeral = weighted.mean(numericGeneralVida,wt = wt.y, na.rm = TRUE)))
+
+format_table( 
+  infoJefeHogar %>%
+  summarise(satisfaccionGeeral = weighted.mean(numericGeneralVida,wt = wt.y, na.rm = TRUE)))
+```
+```{r}
+#migracion interna: salida
+format_table( 
+  dbHogar %>% 
+  count(`312. ¿Alguna persona que formó parte de este hogar se vio forzado a cambiar de residencia/domicilio dentro del país en los últimos 10 años, por motivos de desastres naturales, cambio climático o violencia/inseguridad? (DESPLAZAMIENTO SALIDA)`,wt = wt)  %>%
+  mutate(freq =label_percent()(round(n / sum(n),digits=6)))%>% arrange(desc(n))
+)
+```
+
+```{r}
+#migracion interna: entrada
+format_table( 
+  dbHogar %>% 
+  count(`314. ¿Alguna miembro del hogar se vio forzado a mudarse desde otro lugar de residencia hacia este hogar en los últimos 10 años, por motivos de desastres naturales, cambio climático o violencia/inseguridad? (DESPLAZAMIENTO ENTRADA)`,wt = wt)  %>%
+  mutate(freq =label_percent()(round(n / sum(n),digits=6)))%>% arrange(desc(n))
+)
+```
+
+
+```{r}
+#colnames(infoJefeHogar)[188] <- "Satisfacción general de la vida"
+#infoJefeHogar$`Satisfacción general de la vida`
+#infoJefeHogar$`906. Servicios de salud en su municipio`
+infoJefeHogar <- infoJefeHogar %>% mutate(numeric906 = case_when(`906. Servicios de salud en su municipio`=="0 (Completamente insatisfecho/a)"~0,`906. Servicios de salud en su municipio`=="1"~1,`906. Servicios de salud en su municipio`=="3"~3,`906. Servicios de salud en su municipio`=="4"~4,`906. Servicios de salud en su municipio`=="5 (Neutro)"~5,`906. Servicios de salud en su municipio`=="6"~6,`906. Servicios de salud en su municipio`=="7"~7,`906. Servicios de salud en su municipio`=="8"~8,`906. Servicios de salud en su municipio`=="9"~9,`906. Servicios de salud en su municipio`=="10 (Completamente satisfecho/a)"~10))
+
+format_table( 
+  infoJefeHogar %>% group_by(`917. ¿Usted tiene intención de migrar al exterior en los próximos 12 meses?`)%>% 
+  summarise(satisfaccionSalud = weighted.mean(numeric906,wt = wt.y, na.rm = TRUE)))
+
+format_table( 
+  infoJefeHogar %>%
+  summarise(satisfaccionSalud = weighted.mean(numeric906,wt = wt.y, na.rm = TRUE)))
+```
+
+```{r}
+infoJefeHogar <- infoJefeHogar %>% mutate(numeric907 = case_when(`907. Servicios de educación en su municipio`=="0 (Completamente insatisfecho/a)"~0,`907. Servicios de educación en su municipio`=="1"~1,`907. Servicios de educación en su municipio`=="3"~3,`907. Servicios de educación en su municipio`=="4"~4,`907. Servicios de educación en su municipio`=="5 (Neutro)"~5,`907. Servicios de educación en su municipio`=="6"~6,`907. Servicios de educación en su municipio`=="7"~7,`907. Servicios de educación en su municipio`=="8"~8,`907. Servicios de educación en su municipio`=="9"~9,`907. Servicios de educación en su municipio`=="10 (Completamente satisfecho/a)"~10))
+
+format_table( 
+  infoJefeHogar %>% group_by(`917. ¿Usted tiene intención de migrar al exterior en los próximos 12 meses?`)%>% 
+  summarise(satisfaccionEducacion = weighted.mean(numeric907,wt = wt.y, na.rm = TRUE)))
+
+format_table( 
+  infoJefeHogar %>%
+  summarise(satisfaccionEducacion = weighted.mean(numeric907,wt = wt.y, na.rm = TRUE)))
+```
+
+```{r}
+infoJefeHogar <- infoJefeHogar %>% mutate(numeric908 = case_when(`908. La seguridad púlbica que se provee en su municipio`=="0 (Completamente insatisfecho/a)"~0,`908. La seguridad púlbica que se provee en su municipio`=="1"~1,`908. La seguridad púlbica que se provee en su municipio`=="3"~3,`908. La seguridad púlbica que se provee en su municipio`=="4"~4,`908. La seguridad púlbica que se provee en su municipio`=="5 (Neutro)"~5,`908. La seguridad púlbica que se provee en su municipio`=="6"~6,`908. La seguridad púlbica que se provee en su municipio`=="7"~7,`908. La seguridad púlbica que se provee en su municipio`=="8"~8,`908. La seguridad púlbica que se provee en su municipio`=="9"~9,`908. La seguridad púlbica que se provee en su municipio`=="10 (Completamente satisfecho/a)"~10))
+
+format_table( 
+  infoJefeHogar %>% group_by(`917. ¿Usted tiene intención de migrar al exterior en los próximos 12 meses?`)%>% 
+  summarise(satisfaccionSeguriad = weighted.mean(numeric908,wt = wt.y, na.rm = TRUE)))
+
+format_table( 
+  infoJefeHogar %>%
+  summarise(satisfaccionSeguriad = weighted.mean(numeric908,wt = wt.y, na.rm = TRUE)))
+```
+
+
+```{r}
+infoJefeHogar <- infoJefeHogar %>% mutate(numeric909 = case_when(`909. La situación económica de su hogar`=="0 (Completamente insatisfecho/a)"~0,`909. La situación económica de su hogar`=="1"~1,`909. La situación económica de su hogar`=="3"~3,`909. La situación económica de su hogar`=="4"~4,`909. La situación económica de su hogar`=="5 (Neutro)"~5,`909. La situación económica de su hogar`=="6"~6,`909. La situación económica de su hogar`=="7"~7,`909. La situación económica de su hogar`=="8"~8,`909. La situación económica de su hogar`=="9"~9,`909. La situación económica de su hogar`=="10 (Completamente satisfecho/a)"~10))
+
+format_table( 
+  infoJefeHogar %>% group_by(`917. ¿Usted tiene intención de migrar al exterior en los próximos 12 meses?`)%>% 
+  summarise(satisfaccionEconomica = weighted.mean(numeric909,wt = wt.y, na.rm = TRUE)))
+
+format_table( 
+  infoJefeHogar %>%
+  summarise(satisfaccionEconomica = weighted.mean(numeric909,wt = wt.y, na.rm = TRUE)))
+```
+
+```{r}
+infoJefeHogar <- infoJefeHogar %>% mutate(numeric910 = case_when(`910. Oportunidades para tener mejores condiciones de vida en el futuro`=="0 (Completamente insatisfecho/a)"~0,`910. Oportunidades para tener mejores condiciones de vida en el futuro`=="1"~1,`910. Oportunidades para tener mejores condiciones de vida en el futuro`=="3"~3,`910. Oportunidades para tener mejores condiciones de vida en el futuro`=="4"~4,`910. Oportunidades para tener mejores condiciones de vida en el futuro`=="5 (Neutro)"~5,`910. Oportunidades para tener mejores condiciones de vida en el futuro`=="6"~6,`910. Oportunidades para tener mejores condiciones de vida en el futuro`=="7"~7,`910. Oportunidades para tener mejores condiciones de vida en el futuro`=="8"~8,`910. Oportunidades para tener mejores condiciones de vida en el futuro`=="9"~9,`910. Oportunidades para tener mejores condiciones de vida en el futuro`=="10 (Completamente satisfecho/a)"~10))
+
+format_table( 
+  infoJefeHogar %>% group_by(`917. ¿Usted tiene intención de migrar al exterior en los próximos 12 meses?`)%>% 
+  summarise(satisfaccionOportunidades = weighted.mean(numeric910,wt = wt.y, na.rm = TRUE)))
+
+format_table( 
+  infoJefeHogar %>%
+  summarise(satisfaccionOportunidades = weighted.mean(numeric910,wt = wt.y, na.rm = TRUE)))
+```
+
+```{r}
+format_table(
+  infoJefeHogar %>% group_by(`917. ¿Usted tiene intención de migrar al exterior en los próximos 12 meses?`) %>%
+  count(`901.1. Considero que mi comunidad es un buen lugar para vivir`,wt = wt.y)  %>%
+  mutate(freq =label_percent()(round(n / sum(n),digits=4))))
+```
+
+```{r}
+format_table(
+  infoJefeHogar %>%
+  count(`901.1. Considero que mi comunidad es un buen lugar para vivir`,wt = wt.y)  %>%
+  mutate(freq =label_percent()(round(n / sum(n),digits=4))))
+```
+
+```{r}
+format_table( 
+  infoJefeHogar %>% group_by(`917. ¿Usted tiene intención de migrar al exterior en los próximos 12 meses?`)%>% 
+  count(`901.12. Es muy importante para mí vivir en esta comunidad`,wt = wt.y)  %>%
+  mutate(freq =label_percent()(round(n / sum(n),digits=4))))
+```
+
+```{r}
+format_table( 
+  infoJefeHogar %>% 
+  count(`901.12. Es muy importante para mí vivir en esta comunidad`,wt = wt.y)  %>%
+  mutate(freq =label_percent()(round(n / sum(n),digits=4))))
+```
+
+```{r}
+format_table( 
+  infoJefeHogar %>% group_by(`917. ¿Usted tiene intención de migrar al exterior en los próximos 12 meses?`)%>% 
+  count(`901.14. Espero vivir en esta comunidad mucho tiempo`,wt = wt.y)  %>%
+  mutate(freq =label_percent()(round(n / sum(n),digits=4))))
+```
+
+
+```{r}
+format_table( 
+  infoJefeHogar %>%
+  count(`901.14. Espero vivir en esta comunidad mucho tiempo`,wt = wt.y)  %>%
+  mutate(freq =label_percent()(round(n / sum(n),digits=4))))
+```
+
+
+```{r}
+#dbHogar$`917. ¿Usted tiene intención de migrar al exterior en los próximos 12 meses?`
+format_table( 
+  dbHogar %>%
+  count(`917. ¿Usted tiene intención de migrar al exterior en los próximos 12 meses?`,wt = wt)  %>%
+  mutate(freq =label_percent()(round(n / sum(n),digits=4)))%>% arrange(desc(n))
+)
+```
+
+```{r}
+#dbHogar$`Edad de la persona entrevistada`
+dbSocioDemoPersonaEntrevistada <- dbSocioDemo %>% filter(`Marcar si es la persona entrevistada (una persona por hogar, si más de una persona está respondiendo, marcar quien haya iniciado la entrevista)/Persona entrevistada`=="1")
+
+infoPersonaEntrevistada <- left_join(dbHogar, dbSocioDemoPersonaEntrevistada, by = c("_index" = "_parent_index"))
+
+
+```
+
+```{r}
+
+infoPersonaEntrevistada <- infoPersonaEntrevistada %>% mutate(grupoEdad3 = case_when((`208. ¿Qué edad tiene en años cumplidos?`<30&`208. ¿Qué edad tiene en años cumplidos?`>17)~ "18 - 30",(`208. ¿Qué edad tiene en años cumplidos?`>=30)~"30 o más"))
+#infoPersonaEntrevistada$wt.x
+#infoPersonaEntrevistada$`207. ¿El sexo de es?`
+format_table( 
+  infoPersonaEntrevistada %>%group_by(grupoEdad3,`207. ¿El sexo de es?`)%>%
+  count(`917. ¿Usted tiene intención de migrar al exterior en los próximos 12 meses?`,wt = wt.x)  %>%
+  mutate(freq =label_percent()(round(n / sum(n),digits=4)))
+)
+```
+
+
+```{r}
+#infoPersonaEntrevistada$`301. ¿Algún miembro del hogar tiene familiares en el extranjero?`
+#dbHogar$`917. ¿Usted tiene intención de migrar al exterior en los próximos 12 meses?`
+#dbHogar$`913. ¿Alguien más del hogar tiene intención de migrar al exterior en los próximos 12 meses?`
+dbHogar <- dbHogar %>% mutate(ustedOAlguienTieneIntencionMigrar = case_when((`917. ¿Usted tiene intención de migrar al exterior en los próximos 12 meses?`=="1. Sí"|`913. ¿Alguien más del hogar tiene intención de migrar al exterior en los próximos 12 meses?`=="1. Sí")~1,!(`917. ¿Usted tiene intención de migrar al exterior en los próximos 12 meses?`=="1. Sí"|`913. ¿Alguien más del hogar tiene intención de migrar al exterior en los próximos 12 meses?`=="1. Sí")~0))
+format_table( 
+  dbHogar %>%group_by(`301. ¿Algún miembro del hogar tiene familiares en el extranjero?`)%>%
+  count(ustedOAlguienTieneIntencionMigrar,wt = wt)  %>%
+  mutate(freq =label_percent()(round(n / sum(n),digits=4)))
+)
+
+format_table( 
+  dbHogar %>%
+  count(ustedOAlguienTieneIntencionMigrar,wt = wt)  %>%
+  mutate(freq =label_percent()(round(n / sum(n),digits=4)))
+)
+```
+
+```{r}
+#dbHogar$
+format_table( 
+  dbHogar %>%group_by(`701. En los últimos 12 meses, ¿Algún miembro de su hogar ha recibido apoyo económico proveniente del exterior, ya sea en dinero, en bienes o regalos, aunque sea solo una vez?`)%>%
+  count(ustedOAlguienTieneIntencionMigrar,wt = wt)  %>%
+  mutate(freq =label_percent()(round(n / sum(n),digits=4)))
+)
+```
+```{r}
+format_table( 
+  dbHogar %>% 
+  count(`913. ¿Alguien más del hogar tiene intención de migrar al exterior en los próximos 12 meses?`,wt = wt)  %>%
+  mutate(freq =label_percent()(round(n / sum(n),digits=4)))%>% arrange(desc(n))
+)
+```
+
+```{r}
+#dbHogar$
+format_table( 
+  dbHogar %>% 
+  count(`ustedOAlguienTieneIntencionMigrar`,wt = wt)  %>%
+  mutate(freq =label_percent()(round(n / sum(n),digits=4)))%>% arrange(desc(n))
+)
+```
+
+
+
+
+```{r}
+dbTrabajo <- dbTrabajo %>% mutate(`502. Edad` = as.numeric(`502. Edad`))
+
+colnames(dbTrabajo)[63] <- "516. Cual es su ingreso en quetzales"
+
+dbTrabajo <- dbTrabajo %>% mutate(`516. Cual es su ingreso en quetzales` = as.numeric(`516. Cual es su ingreso en quetzales`))
+
+dbTrabajo <-dbTrabajo %>% mutate(`grupoDeEdad2` = ifelse((`502. Edad`<18&`502. Edad`>6),"Niñez y adolescencia (7 a 17)",ifelse(`502. Edad`<30,"Juventud (18 a 29)",ifelse(`502. Edad`<60,"Población adulta (30-59)",ifelse(`502. Edad`<120,"Personas adultas mayores (60+)","NA")))))
+
+#
+#anios de escolaridad
+dbSocioDemo <- dbSocioDemo %>% mutate(aniosEscolaridad = ifelse(`211. ¿Cuál fue el último nivel estudiado y grado aprobado?`=='0. Ninguno (o menos que 1ero de primaria)',0,ifelse(`211. ¿Cuál fue el último nivel estudiado y grado aprobado?`=='1. Primero de primaria',1,ifelse(`211. ¿Cuál fue el último nivel estudiado y grado aprobado?`=='2. Segundo de primaria',2,ifelse(`211. ¿Cuál fue el último nivel estudiado y grado aprobado?`=='3. Tercero de primaria',3,ifelse(`211. ¿Cuál fue el último nivel estudiado y grado aprobado?`=='4. Cuarto de primaria',4,ifelse(`211. ¿Cuál fue el último nivel estudiado y grado aprobado?`=='5. Quinto de primaria',5,ifelse(`211. ¿Cuál fue el último nivel estudiado y grado aprobado?`=='6. Sexto de primaria',6,ifelse(`211. ¿Cuál fue el último nivel estudiado y grado aprobado?`=='7. Primero de básica',7,ifelse(`211. ¿Cuál fue el último nivel estudiado y grado aprobado?`=='8. Segundo de básica',8,ifelse(`211. ¿Cuál fue el último nivel estudiado y grado aprobado?`=='9. Tercero de básica',9,ifelse(`211. ¿Cuál fue el último nivel estudiado y grado aprobado?`=='10. Primero de diversificado',10,ifelse(`211. ¿Cuál fue el último nivel estudiado y grado aprobado?`=='11. Segundo de diversificado',11,ifelse(`211. ¿Cuál fue el último nivel estudiado y grado aprobado?`=='12. Tercero de diversificado',12,ifelse(`211. ¿Cuál fue el último nivel estudiado y grado aprobado?`=='13. Primero de técnico (superior no universitario)',12,ifelse(`211. ¿Cuál fue el último nivel estudiado y grado aprobado?`=='17. Segundo de universidad',13,ifelse(`211. ¿Cuál fue el último nivel estudiado y grado aprobado?`=='18. Tercero de universidad',14,ifelse(`211. ¿Cuál fue el último nivel estudiado y grado aprobado?`=='15. Tercero de técnico (superior no universitario)',14,NA))))))))))))))))))
+
+#dbSocioDemo$`203. ¿Qué relación de parentesco tiene con el(la) jefe(a) de hogar?`
+```
+```{r}
+#dbSocioDemo$`Marcar si es la persona entrevistada (una persona por hogar, si más de una persona está respondiendo, marcar quien haya iniciado la entrevista)/Persona entrevistada`
+#dbSocioDemo <- 
+```
+
+```{r}
+jefeHogar <- dbSocioDemo %>% filter(`203. ¿Qué relación de parentesco tiene con el(la) jefe(a) de hogar?` == '1-Jefe(a) de hogar' & `Marcar si es la persona entrevistada (una persona por hogar, si más de una persona está respondiendo, marcar quien haya iniciado la entrevista)/Persona entrevistada`==1)
+infoJefeHogar <- right_join(dbHogar,jefeHogar, by = c("_index" = "_parent_index"))
+
+infoJefeHogar <- infoJefeHogar %>% mutate(numeric909 = case_when(`909. La situación económica de su hogar`=="0 (Completamente insatisfecho/a)"~0,`909. La situación económica de su hogar`=="1"~1,`909. La situación económica de su hogar`=="3"~3,`909. La situación económica de su hogar`=="4"~4,`909. La situación económica de su hogar`=="5 (Neutro)"~5,`909. La situación económica de su hogar`=="6"~6,`909. La situación económica de su hogar`=="7"~7,`909. La situación económica de su hogar`=="8"~8,`909. La situación económica de su hogar`=="9"~9,`909. La situación económica de su hogar`=="10 (Completamente satisfecho/a)"~10))
+
+infoJefeHogar <- infoJefeHogar %>% mutate(numeric910 = case_when(`910. Oportunidades para tener mejores condiciones de vida en el futuro`=="0 (Completamente insatisfecho/a)"~0,`910. Oportunidades para tener mejores condiciones de vida en el futuro`=="1"~1,`910. Oportunidades para tener mejores condiciones de vida en el futuro`=="3"~3,`910. Oportunidades para tener mejores condiciones de vida en el futuro`=="4"~4,`910. Oportunidades para tener mejores condiciones de vida en el futuro`=="5 (Neutro)"~5,`910. Oportunidades para tener mejores condiciones de vida en el futuro`=="6"~6,`910. Oportunidades para tener mejores condiciones de vida en el futuro`=="7"~7,`910. Oportunidades para tener mejores condiciones de vida en el futuro`=="8"~8,`910. Oportunidades para tener mejores condiciones de vida en el futuro`=="9"~9,`910. Oportunidades para tener mejores condiciones de vida en el futuro`=="10 (Completamente satisfecho/a)"~10))
+```
+
+```{r}
+infoJefeHogar <- infoJefeHogar %>% mutate(intencionMigrarDummy = case_when(`917. ¿Usted tiene intención de migrar al exterior en los próximos 12 meses?` == "1. Sí"~1,`917. ¿Usted tiene intención de migrar al exterior en los próximos 12 meses?` != "1. Sí"~0))
+#infoJefeHogar$`207. ¿El sexo de es?`
+infoJefeHogar <- infoJefeHogar %>% mutate(hombreDummy = case_when(`207. ¿El sexo de es?` == "1. Hombre"~1,`207. ¿El sexo de es?` != "1. Hombre"~0))
+
+infoJefeHogar <- infoJefeHogar %>% mutate(alguienEmigroDummy = case_when(`302. ¿ALGÚN MIEMBRO DEL HOGAR O QUE FUE PARTE DEL HOGAR MIGRÓ O INTENTÓ MIGRAR AL EXTRANJERO EN LOS ÚLTIMOS 10 AÑOS?` == "1. Sí"~1,`302. ¿ALGÚN MIEMBRO DEL HOGAR O QUE FUE PARTE DEL HOGAR MIGRÓ O INTENTÓ MIGRAR AL EXTRANJERO EN LOS ÚLTIMOS 10 AÑOS?` == "2. No"~0))
+
+infoJefeHogar <- infoJefeHogar %>% mutate(dueinoHogarDummy = case_when(`118. ¿Cuál es la forma de tenencia de esta vivienda?` == "5. Propietario(a) y completamente pagada"~1,`118. ¿Cuál es la forma de tenencia de esta vivienda?` == "6. Propietario(a) y la está pagando"~1,(`118. ¿Cuál es la forma de tenencia de esta vivienda?` == "5. Propietario(a) y completamente pagada"|`118. ¿Cuál es la forma de tenencia de esta vivienda?` == "6. Propietario(a) y la está pagando")~0))
+
+infoJefeHogar <- infoJefeHogar %>% mutate(importanteVivirAquiDummy = case_when(`901.12. Es muy importante para mí vivir en esta comunidad` == "1. De acuerdo"~1,`901.12. Es muy importante para mí vivir en esta comunidad` != "1. De acuerdo"~0))
+
+infoJefeHogar <- infoJefeHogar %>% mutate(importanteVivirAquiDummy = case_when(`901.12. Es muy importante para mí vivir en esta comunidad` == "1 - De acuerdo"~1,`901.12. Es muy importante para mí vivir en esta comunidad` != "1 - De acuerdo"~0))
+
+trim2 <- function (x) gsub("\\d\\. ", "", x)
+infoJefeHogar$`118. ¿Cuál es la forma de tenencia de esta vivienda?` <- trim2(infoJefeHogar$`118. ¿Cuál es la forma de tenencia de esta vivienda?`)
+
+#trim3 <- function (x) gsub("\\d(?=\w)", "", x)
+#infoJefeHogar$`118. ¿Cuál es la forma de tenencia de esta vivienda?` <- trim3(infoJefeHogar$`118. ¿Cuál es la forma de tenencia de esta vivienda?`)
+
+trim <- function (x) gsub("^\\s+|\\s+$", "", x)
+infoJefeHogar$`118. ¿Cuál es la forma de tenencia de esta vivienda?` <- trim(infoJefeHogar$`118. ¿Cuál es la forma de tenencia de esta vivienda?`)
+
+
+
+infoJefeHogar$`118. ¿Cuál es la forma de tenencia de esta vivienda?`<- str_squish(infoJefeHogar$`118. ¿Cuál es la forma de tenencia de esta vivienda?`)
+
+infoJefeHogar$`118. ¿Cuál es la forma de tenencia de esta vivienda?` <- str_trim(infoJefeHogar$`118. ¿Cuál es la forma de tenencia de esta vivienda?`)
+
+infoJefeHogar <- infoJefeHogar %>% mutate(dueinoHogarDummy = ifelse(`118. ¿Cuál es la forma de tenencia de esta vivienda?` == "0Propietario(a) y completamente pagada"|`118. ¿Cuál es la forma de tenencia de esta vivienda?` == "0Propietario(a) y la está pagando",1,0))
+
+infoJefeHogar <- infoJefeHogar %>% mutate(intencionMigrarDummy = case_when(`917. ¿Usted tiene intención de migrar al exterior en los próximos 12 meses?` == "1. Sí"~1,`917. ¿Usted tiene intención de migrar al exterior en los próximos 12 meses?` != "1. Sí"~0))
+
+infoJefeHogar <- infoJefeHogar %>%  mutate(alguienFamiliaEmigro = case_when(`301. ¿Algún miembro del hogar tiene familiares en el extranjero?`=="1. Sí"~1,`301. ¿Algún miembro del hogar tiene familiares en el extranjero?`!="1. Sí"~0))
+
+
+```
+
+```{r}
+format_table( 
+  infoJefeHogar %>% group_by(`917. ¿Usted tiene intención de migrar al exterior en los próximos 12 meses?`)%>% 
+  count(`901.12. Es muy importante para mí vivir en esta comunidad`,wt = wt.y)  %>%
+  mutate(freq =label_percent()(round(n / sum(n),digits=4))))
+
+infoJefeHogar <- infoJefeHogar %>% mutate(importanteVivirAquiDummy = case_when(`901.12. Es muy importante para mí vivir en esta comunidad` == "1 - De acuerdo"~1,`901.12. Es muy importante para mí vivir en esta comunidad` != "1 - De acuerdo"~0))
+
+colnames(infoJefeHogar)[186] <- "Satisfacción general de la vida2"
+
+#infoJefeHogar$`Satisfacción general de la vida`
+#infoJefeHogar$`906. Servicios de salud en su municipio`
+infoJefeHogar <- infoJefeHogar %>% mutate(numericGeneralVida = case_when(`Satisfacción general de la vida2`=="0 (Completamente insatisfecho/a)"~0,`Satisfacción general de la vida2`=="1"~1,`Satisfacción general de la vida2`=="3"~3,`Satisfacción general de la vida2`=="4"~4,`Satisfacción general de la vida2`=="5 (Neutro)"~5,`Satisfacción general de la vida2`=="6"~6,`Satisfacción general de la vida2`=="7"~7,`Satisfacción general de la vida2`=="8"~8,`Satisfacción general de la vida2`=="9"~9,`Satisfacción general de la vida2`=="10 (Completamente satisfecho/a)"~10))
+```
+
+
+```{r}
+attach(infoJefeHogar)
+library(DescTools)
+resultGlm2 <- glm(intencionMigrarDummy ~ hombreDummy + alguienFamiliaEmigro +  numericGeneralVida + numeric910  + importanteVivirAquiDummy + importanteVivirAquiDummy,family=binomial (link = "logit"), weights= wt.y)
+#infoJefeHogar2$wt.y
+summary(resultGlm2) 
+
+# Logit model odds ratios
+exp(resultGlm2$coefficients)
+
+PseudoR2(resultGlm)
+```
+
+
+```{r}
+#infoJefeHogar$`Edad de la persona entrevistada...19`
+attach(infoJefeHogar)
+#infoJefeHogar$`208. ¿Qué edad tiene en años cumplidos?`
+library(DescTools)
+resultGlm2 <- glm(intencionMigrarDummy ~ hombreDummy + alguienFamiliaEmigro +  `208. ¿Qué edad tiene en años cumplidos?` + numeric910  + importanteVivirAquiDummy + importanteVivirAquiDummy,family=binomial (link = "logit"), weights= wt.y)
+#infoJefeHogar2$wt.y
+summary(resultGlm2) 
+
+# Logit model odds ratios
+exp(resultGlm2$coefficients)
+
+PseudoR2(resultGlm)
+```
+
